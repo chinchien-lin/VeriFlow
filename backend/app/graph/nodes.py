@@ -40,8 +40,14 @@ def _log_node_execution(run_id: str, step_name: str, data: Dict[str, Any]):
         log_dir = Path("logs") / run_id
         log_dir.mkdir(parents=True, exist_ok=True)
         file_path = log_dir / f"{step_name}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
+        # Write to a temporary file first 
+        temp_path = log_dir / f"{step_name}.json.tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, default=str)
+            
+        # Then atomically rename to the final file
+        # Using built-in os.replace which handles overwriting atomically
+        os.replace(temp_path, file_path)
     except Exception as e:
         logger.error(f"Failed to log node execution for {step_name}: {e}")
 

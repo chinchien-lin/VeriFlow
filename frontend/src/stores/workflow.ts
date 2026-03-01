@@ -438,6 +438,22 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
 
     function setHierarchyFromOrchestration(isa: any) {
+        console.log('setHierarchyFromOrchestration called with:', isa);
+
+        // Safeguard: Sometimes the backend returns a JSON-stringified object
+        // (usually from AI output generation), which means isa.studyDesign would be undefined.
+        if (typeof isa === 'string') {
+            try {
+                isa = JSON.parse(isa);
+                console.log('Parsed stringified isa into object:', isa);
+            } catch (e) {
+                console.warn('Failed to parse stringified isa:', e);
+            }
+        } else if (Array.isArray(isa)) {
+            isa = isa[0];
+            console.log('Parsed list isa into object:', isa);
+        }
+
         if (isa && isa.studyDesign) {
             const sd = isa.studyDesign
             const inv = sd.investigation || {}
