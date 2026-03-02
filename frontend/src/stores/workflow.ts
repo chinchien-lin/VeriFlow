@@ -13,6 +13,32 @@ import { getLayoutedElements } from '../utils/layout'
 import { wsService } from '../services/websocket'
 import { useConsoleStore } from './console'
 
+function formatBackendError(err: any): string {
+    let errorMsg = String(err?.message || err);
+    if (err?.response?.data) {
+        if (typeof err.response.data === 'string') {
+            errorMsg = err.response.data;
+        } else if (err.response.data.detail) {
+            errorMsg = typeof err.response.data.detail === 'string' ? err.response.data.detail : JSON.stringify(err.response.data.detail);
+        } else if (err.response.data.message) {
+            errorMsg = typeof err.response.data.message === 'string' ? err.response.data.message : JSON.stringify(err.response.data.message);
+        } else {
+            errorMsg = JSON.stringify(err.response.data);
+        }
+    }
+
+    try {
+        let cleanStr = errorMsg.replace(/\\n/g, '').replace(/\\"/g, '"').replace(/\\'/g, "'");
+        const matches = [...cleanStr.matchAll(/"message"\s*:\s*"([^"]+)"/g)];
+        if (matches.length > 0) {
+            const bestMatch = matches.reverse().find(m => !m[1].includes('{'));
+            if (bestMatch) {
+                return bestMatch[1];
+            }
+        }
+    } catch (e) { }
+    return errorMsg;
+}
 // Types per SPEC.md Section 3
 export interface ConfidenceScore {
     value: number
@@ -268,12 +294,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
         } catch (err: any) {
             console.error('Orchestration failed:', err)
-            error.value = err.response?.data?.detail || err.message || 'Orchestration failed'
+            const parsedError = formatBackendError(err)
+            error.value = parsedError
+
+            const consoleStore = useConsoleStore()
+            consoleStore.addSystemMessage(`Orchestration failed: ${parsedError}`, true)
 
             addLog({
                 timestamp: new Date().toISOString(),
                 level: 'ERROR',
-                message: `Orchestration failed: ${error.value}`
+                message: `Orchestration failed: ${parsedError}`
             })
 
             // No fallback to mock data - we want to see the real error in this new flow
@@ -302,28 +332,57 @@ export const useWorkflowStore = defineStore('workflow', () => {
             // We need to map this to our Investigation interface
             const isa = data.result.isa_json
             console.log("ISA: ", isa);
+
+            // Check for AI model errors (like 503) stored in JSON
+            if (isa && typeof isa === 'object' && isa.error && typeof isa.error === 'string') {
+                const consoleStore = useConsoleStore()
+                let displayError = isa.error;
+
+                // Try to parse the inner message if it looks like the python string representation of a dict
+                try {
+                    // Extract the string inside {'message': '...'}
+                    const match = isa.error.match(/'message':\s*'({.*})'/);
+                    if (match && match[1]) {
+                        // The inner string might have escaped newlines and quotes
+                        const innerJsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
+                        const innerJson = JSON.parse(innerJsonStr);
+                        if (innerJson.error && innerJson.error.message) {
+                            displayError = innerJson.error.message;
+                        }
+                    } else if (isa.error.includes('503 Service Unavailable')) {
+                        // Fallback if regex fails but we know it's a 503
+                        displayError = "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.";
+                    }
+                } catch (e) {
+                    console.error("Failed to parse inner AI error", e);
+                }
+
+                consoleStore.addSystemMessage(`AI Error: ${displayError}`, true)
+                throw new Error(`${displayError}`)
+            }
+
             if (isa && isa.studyDesign) {
                 const sd = isa.studyDesign
                 const inv = sd.investigation || {}
                 console.log("Investigation: ", inv);
                 // Construct Hierarchy
                 hierarchy.value = {
-                    identifier: inv.id || 'inv_orchestrated',
-                    title: inv.title || 'Orchestrated Investigation',
+                    identifier: inv.id || '',
+                    title: inv.title || '',
                     description: inv.description || '',
                     studies: [
                         {
-                            identifier: sd.study?.id || 'study_orchestrated',
-                            title: sd.study?.title || 'Main Study',
+                            identifier: sd.study?.id || '',
+                            title: sd.study?.title || '',
                             description: sd.study?.description || '',
                             assays: (sd.assays || []).map((assay: any) => ({
                                 identifier: assay.id,
-                                filename: assay.name || 'Assay',
+                                filename: assay.name || '',
                                 name: assay.name,
                                 description: assay.name, // Mapping name to description for now or create new field
                                 steps: assay.workflowSteps || [],
-                                measurementType: { term: 'N/A' },
-                                technologyType: { term: 'N/A' }
+                                measurementType: { term: '' },
+                                technologyType: { term: '' }
                             }))
                         }
                     ]
@@ -389,21 +448,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
                 // Set hierarchy from API response
                 const inv = data.hierarchy.investigation
                 hierarchy.value = {
-                    identifier: inv.id || 'inv_1',
-                    title: inv.title || 'Unknown Investigation',
+                    identifier: inv.id || '',
+                    title: inv.title || '',
                     description: inv.description || '',
                     studies: (inv.studies || []).map((study: any) => ({
-                        identifier: study.id || 'study_1',
-                        title: study.title || 'Unknown Study',
+                        identifier: study.id || '',
+                        title: study.title || '',
                         description: study.description || '',
                         assays: (study.assays || []).map((assay: any) => ({
                             identifier: assay.id,
-                            filename: assay.name || 'Unknown Assay',
+                            filename: assay.name || '',
                             name: assay.name,
                             description: assay.description,
                             steps: assay.steps,
-                            measurementType: { term: assay.measurement_type || 'Unknown' },
-                            technologyType: { term: assay.technology_type || 'Unknown' }
+                            measurementType: { term: assay.measurement_type || '' },
+                            technologyType: { term: assay.technology_type || '' }
                         }))
                     }))
                 }
@@ -454,6 +513,34 @@ export const useWorkflowStore = defineStore('workflow', () => {
             console.log('Parsed list isa into object:', isa);
         }
 
+        // Check for AI model errors (like 503) stored in JSON
+        if (isa && typeof isa === 'object' && isa.error && typeof isa.error === 'string') {
+            const consoleStore = useConsoleStore()
+            let displayError = isa.error;
+
+            // Try to parse the inner message if it looks like the python string representation of a dict
+            try {
+                // Extract the string inside {'message': '...'}
+                const match = isa.error.match(/'message':\s*'({.*})'/);
+                if (match && match[1]) {
+                    // The inner string might have escaped newlines and quotes
+                    const innerJsonStr = match[1].replace(/\\n/g, '').replace(/\\"/g, '"');
+                    const innerJson = JSON.parse(innerJsonStr);
+                    if (innerJson.error && innerJson.error.message) {
+                        displayError = innerJson.error.message;
+                    }
+                } else if (isa.error.includes('503 Service Unavailable')) {
+                    // Fallback if regex fails but we know it's a 503
+                    displayError = "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.";
+                }
+            } catch (e) {
+                console.error("Failed to parse inner AI error", e);
+            }
+
+            consoleStore.addSystemMessage(`AI Error: ${displayError}`, true)
+            throw new Error(`${displayError}`)
+        }
+
         if (isa && isa.studyDesign) {
             const sd = isa.studyDesign
             const inv = sd.investigation || {}
@@ -464,29 +551,29 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
             // Construct Hierarchy
             hierarchy.value = {
-                identifier: inv.id || 'inv_orchestrated',
-                title: inv.title || 'Orchestrated Investigation',
+                identifier: inv.id || '',
+                title: inv.title || '',
                 description: inv.description || '',
                 paper: {
-                    id: paper.id || 'root',
-                    title: paper.title || 'Unknown Paper',
-                    authors: paper.authors || 'Unknown Authors',
-                    year: paper.year || new Date().getFullYear().toString(),
+                    id: paper.id || '',
+                    title: paper.title || '',
+                    authors: paper.authors || '',
+                    year: paper.year || '',
                     abstract: paper.abstract || ''
                 },
                 studies: [
                     {
-                        identifier: sd.study?.id || 'study_orchestrated',
-                        title: sd.study?.title || 'Main Study',
+                        identifier: sd.study?.id || '',
+                        title: sd.study?.title || '',
                         description: sd.study?.description || '',
                         assays: (sd.assays || []).map((assay: any) => ({
                             identifier: assay.id,
-                            filename: assay.name || 'Assay',
+                            filename: assay.name || '',
                             name: assay.name,
                             description: assay.name,
                             steps: assay.workflowSteps || [],
-                            measurementType: { term: 'N/A' },
-                            technologyType: { term: 'N/A' }
+                            measurementType: { term: '' },
+                            technologyType: { term: '' }
                         }))
                     }
                 ]
@@ -547,12 +634,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
         } catch (err: any) {
             console.error('Workflow assembly failed:', err)
-            error.value = err.response?.data?.detail || err.message || 'Failed to assemble workflow'
+            const parsedError = formatBackendError(err)
+            error.value = parsedError
+
+            const consoleStore = useConsoleStore()
+            consoleStore.addSystemMessage(`Workflow assembly failed: ${parsedError}`, true)
 
             addLog({
                 timestamp: new Date().toISOString(),
                 level: 'ERROR',
-                message: `Workflow assembly failed: ${error.value}`
+                message: `Workflow assembly failed: ${parsedError}`
             })
 
             // Re-throw if needed, or handle gracefully

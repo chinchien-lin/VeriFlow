@@ -95,7 +95,10 @@ onMounted(() => {
           </div>
           
           <!-- System message -->
-          <span v-else class="text-slate-500 italic break-words">{{ message.content }}</span>
+          <span v-else :class="[
+            message.isError ? 'text-red-500 font-medium' : 'text-slate-500 italic',
+            'break-words'
+          ]" :style="message.isError ? 'color: #ef4444; font-weight: 600;' : ''">{{ message.content }}</span>
         </div>
       </div>
       <div ref="messagesEndRef" />

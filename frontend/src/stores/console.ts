@@ -9,6 +9,7 @@ export interface Message {
     agent?: 'scholar' | 'engineer' | 'reviewer'
     content: string
     timestamp: Date
+    isError?: boolean
 }
 
 export const useConsoleStore = defineStore('console', () => {
@@ -66,7 +67,15 @@ export const useConsoleStore = defineStore('console', () => {
 
         } catch (error: any) {
             console.error("Chat error:", error)
-            addSystemMessage(`Error sending message: ${error.message || 'Unknown error'}`)
+            const errDetail = error.response?.data?.detail || error.message;
+            let displayMsg = errDetail || 'Unknown error';
+            try {
+                const match = String(errDetail).match(/"message"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+                if (match && match[1]) {
+                    displayMsg = match[1];
+                }
+            } catch (e) { }
+            addSystemMessage(`Error sending message: ${displayMsg}`, true)
         }
     }
 
@@ -118,14 +127,15 @@ export const useConsoleStore = defineStore('console', () => {
         lastStreamMessageId.value = newId
     }
 
-    function addSystemMessage(content: string) {
+    function addSystemMessage(content: string, isError: boolean = false) {
         // Reset stream tracking on system message (status update)
         lastStreamMessageId.value = null
 
         addMessage({
             type: 'system',
             content,
-            timestamp: new Date()
+            timestamp: new Date(),
+            isError
         })
     }
 

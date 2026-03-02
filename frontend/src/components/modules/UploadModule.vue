@@ -123,11 +123,27 @@ async function processPdfUpload(file: File) {
         showInfoModal.value = true
     } catch (error: any) {
         console.error("Upload failed", error)
+        let errorMsg = error.message || "Unknown error";
         if (error.response && error.response.status === 413) {
-            alert("File is too large. Please upload a smaller file (max 2GB).")
-        } else {
-            alert("Upload failed: " + (error.message || "Unknown error"))
+            errorMsg = "File is too large. Please upload a smaller file (max 2GB).";
+        } else if (error.response?.data?.detail) {
+            errorMsg = String(error.response.data.detail);
+            try {
+                let cleanStr = errorMsg.replace(/\\n/g, '').replace(/\\"/g, '"').replace(/\\'/g, "'");
+                const matches = [...cleanStr.matchAll(/"message"\s*:\s*"([^"]+)"/g)];
+                if (matches.length > 0) {
+                    const bestMatch = matches.reverse().find(m => !m[1].includes('{'));
+                    if (bestMatch) {
+                        errorMsg = bestMatch[1];
+                    }
+                }
+            } catch(e) {}
         }
+        
+        const consoleStore = useConsoleStore()
+        consoleStore.addSystemMessage(`Upload failed: ${errorMsg}`, true)
+        
+        alert(`Upload failed: ${errorMsg}`)
     } finally {
         isUploading.value = false
     }
@@ -262,10 +278,26 @@ async function handleModalSubmit(info: string) {
           }
       }).catch(error => {
           console.error("Orchestration failed", error)
-          store.error = "Orchestration failed: " + (error.message || "Unknown error")
+          
+          let errorMsg = error.message || "Unknown error";
+          if (error.response?.data?.detail) {
+              errorMsg = String(error.response.data.detail);
+              try {
+                  let cleanStr = errorMsg.replace(/\\n/g, '').replace(/\\"/g, '"').replace(/\\'/g, "'");
+                  const matches = [...cleanStr.matchAll(/"message"\s*:\s*"([^"]+)"/g)];
+                  if (matches.length > 0) {
+                      const bestMatch = matches.reverse().find(m => !m[1].includes('{'));
+                      if (bestMatch) {
+                          errorMsg = bestMatch[1];
+                      }
+                  }
+              } catch(e) {}
+          }
+          
+          store.error = `Orchestration failed: ${errorMsg}`
           
           const consoleStore = useConsoleStore()
-          consoleStore.addSystemMessage(`Orchestration failed: ${error.message}`)
+          consoleStore.addSystemMessage(`Orchestration failed: ${errorMsg}`, true)
       }).finally(() => {
           store.isLoading = false
           store.loadingMessage = null

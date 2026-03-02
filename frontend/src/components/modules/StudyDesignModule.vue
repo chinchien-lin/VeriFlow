@@ -61,11 +61,11 @@ const assays = computed(() => study.value?.assays || [])
 // For now, we display the store values directly or fallback
 
 const paperTitle = computed({
-  get: () => hierarchy.value?.paper?.title || 'A large-scale multicenter breast cancer DCE-MRI benchmark dataset with expert segmentations',
+  get: () => hierarchy.value?.paper?.title || '',
   set: (val) => { if (hierarchy.value?.paper) hierarchy.value.paper.title = val }
 })
 const paperAuthors = computed({
-  get: () => hierarchy.value?.paper?.authors || 'Unknown Authors',
+  get: () => hierarchy.value?.paper?.authors || '',
   set: (val) => { if (hierarchy.value?.paper) hierarchy.value.paper.authors = val }
 })
 const paperYear = computed({
@@ -78,25 +78,25 @@ const paperAbstract = computed({
 })
 
 const investigationTitle = computed({
-  get: () => investigation.value?.title || 'No Investigation',
+  get: () => investigation.value?.title || '',
   set: (val) => { if (investigation.value) investigation.value.title = val }
 })
 const investigationDescription = computed({
     get: () => investigation.value?.description || '',
     set: (val) => { if (investigation.value) investigation.value.description = val }
 })
-const investigationSubmissionDate = ref('2024-06-20') // Not in current interface
+const investigationSubmissionDate = ref('') // Not in current interface
 
 const studyTitle = computed({
-    get: () => study.value?.title || 'No Study',
+    get: () => study.value?.title || '',
     set: (val) => { if (study.value) study.value.title = val }
 })
 const studyDescription = computed({
     get: () => study.value?.description || '',
     set: (val) => { if (study.value) study.value.description = val }
 })
-const studyNumSubjects = ref('1506') // Not explicitly in Study interface
-const studyDesign = ref('Retrospective multicenter cohort study')
+const studyNumSubjects = ref('') // Not explicitly in Study interface
+const studyDesign = ref('')
 
 // Assay Handling
 // When an assay is selected, populate the local editable state
@@ -228,6 +228,17 @@ function handleSourceClick() {
       </div>
 
       <div v-else class="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <!-- Extraction Failed Warning -->
+        <div v-if="!hierarchy" class="m-4 p-4 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
+          <Info class="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 class="text-red-800 font-bold text-sm">ISA Extraction Failed or Incomplete</h3>
+            <p class="text-red-600 text-xs mt-1">
+              The AI was unable to generate a valid study design hierarchy, possibly due to a service error or high demand. You can try again later.
+            </p>
+          </div>
+        </div>
+
         <!-- Tree View -->
         <div class="overflow-y-auto border-b border-slate-200 max-h-[50%] shrink-0">
           <div class="px-3 py-3 space-y-1">
@@ -325,7 +336,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="text" v-model="paperTitle" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" v-model="paperTitle" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !paperTitle ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -335,7 +346,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="text" v-model="paperAuthors" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" v-model="paperAuthors" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !paperAuthors ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -345,7 +356,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="text" v-model="paperYear" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" v-model="paperYear" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !paperYear ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -355,7 +366,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <textarea v-model="paperAbstract" rows="4" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              <textarea v-model="paperAbstract" rows="4" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !paperAbstract ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']"></textarea>
             </div>
 
             <button class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors">
@@ -382,7 +393,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="text" v-model="investigationTitle" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" v-model="investigationTitle" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !investigationTitle ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -392,7 +403,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <textarea v-model="investigationDescription" rows="3" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              <textarea v-model="investigationDescription" rows="3" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !investigationDescription ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']"></textarea>
             </div>
 
             <div>
@@ -402,7 +413,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="date" v-model="investigationSubmissionDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="date" v-model="investigationSubmissionDate" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !investigationSubmissionDate ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <button class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors">
@@ -429,7 +440,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="text" v-model="studyTitle" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" v-model="studyTitle" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !studyTitle ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -439,7 +450,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <textarea v-model="studyDescription" rows="3" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              <textarea v-model="studyDescription" rows="3" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !studyDescription ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']"></textarea>
             </div>
 
             <div>
@@ -449,7 +460,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <input type="number" v-model="studyNumSubjects" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="number" v-model="studyNumSubjects" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !studyNumSubjects ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']" />
             </div>
 
             <div>
@@ -459,7 +470,7 @@ function handleSourceClick() {
                   <ExternalLink class="w-3 h-3" /> Source
                 </button>
               </div>
-              <select v-model="studyDesign" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="studyDesign" :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !studyDesign ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']">
                 <option>Retrospective cohort study</option>
                 <option>Prospective cohort study</option>
                 <option>Case-control study</option>
@@ -502,7 +513,7 @@ function handleSourceClick() {
               <input
                 type="text"
                 v-model="assayName"
-                class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                :class="['w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !assayName ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']"
               />
             </div>
 
@@ -526,7 +537,7 @@ function handleSourceClick() {
                       type="text"
                       :value="getStepName(step)"
                       @input="setStepName(step, ($event.target as HTMLInputElement).value)"
-                      class="flex-1 px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      :class="['flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2', !getStepName(step) ? 'border-2 border-red-500 ring-2 ring-red-200 bg-red-50 text-red-900 placeholder-red-400 font-medium' : 'border-slate-300 focus:ring-blue-500']"
                     />
                     <button
                       @click="handleSourceClick()"
